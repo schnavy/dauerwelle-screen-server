@@ -1,0 +1,11 @@
+videos/
+
+node_modules
+client/node_modules
+
+client/.env
+.env
+
+.server.js.swp
+
+.vscode
