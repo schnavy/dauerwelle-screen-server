@@ -1,0 +1,14 @@
+[
+  {
+    "host": "10.0.0.2",
+    "user": "pi",
+    "password": "raspberry",
+    "videoPath": "/home/pi/Videos"
+  },
+  {
+    "host": "10.0.0.3",
+    "user": "david",
+    "password": "pass123",
+    "videoPath": "/home/david/player/client/videos"
+  }
+]

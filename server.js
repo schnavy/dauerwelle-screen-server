@@ -11,8 +11,8 @@ let audioPlayer = null;
 let nowPlaying = null; // { sceneId, startTime }
 
 const scenes = {};
-const VIDEO_AMOUNT = 4;
-for (let i = 1; i < VIDEO_AMOUNT; i++) {
+const VIDEO_AMOUNT = 14;
+for (let i = 1; i < VIDEO_AMOUNT + 1; i++) {
   const id = i.toString().padStart(2, "0");
   scenes[id] = { video: `${id}.mp4`, audio: `${id}.mp4` };
 }
@@ -25,6 +25,14 @@ wss.on("connection", (ws, req) => {
   clients.set(deviceId, ws);
   console.log(`✓ Device connected: ${deviceId} (${ip})`);
   console.log(`  Connected devices: ${[...clients.keys()].join(", ")}`);
+
+  ws.on("message", (raw) => {
+    const msg = JSON.parse(raw);
+    if (msg.action === "ended" && nowPlaying && nowPlaying.deviceId === deviceId) {
+      console.log(`~> Video ended on device ${deviceId}`);
+      nowPlaying = null;
+    }
+  });
 
   ws.on("close", () => {
     clients.delete(deviceId);
@@ -147,7 +155,7 @@ rl.on("line", (input) => {
         console.log(otherClient);
         switchToClient(otherClient);
       }
-    }, 2000);
+    }, 5000);
     return;
   }
 });
