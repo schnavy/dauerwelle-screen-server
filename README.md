@@ -30,7 +30,7 @@ Server (running server.js)
    scp -r client/ pi@screen-pi-1.local:/home/player
    ```
 5. install npm modules
-6. set SERVER_IP in .env on client
+6. set SERVER_IP in .env on client (if not using 10.0.0.1)
 7. All connected clients should be documented in clients.json (for the moment only for overview, not techinally needed)
 
 ### Media transfer
