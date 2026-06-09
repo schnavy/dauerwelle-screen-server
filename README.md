@@ -1,7 +1,7 @@
 _Dauerwelle "Drift as a Method" – Breminale 2026_
 
 ## Setup for algorithmic video screening network.
-Currently set up for testing on mac and a single Raspberry Pi 5
+Currently set up for testing on mac and Raspberry Pi 5
 
 ```
 Server (running server.js)
