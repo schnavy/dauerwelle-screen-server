@@ -24,6 +24,11 @@ Server (running server.js)
 3. Setup Pi for Network
    ```
    tba. (edit config file, i will add documentation soon)
+   10.0.0.2
+   10.0.0.3
+   10.0.0.4
+
+   /etc/netplan/...
    ```
 4. transfer client sub-repo to pi via scp
    ```
