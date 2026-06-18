@@ -10,6 +10,10 @@ let audioPlayer = null;
 // global now-playing state
 let nowPlaying = null; // { sceneId, startTime }
 
+// drift mode state
+let driftMode = false;
+let driftSceneId = null;
+
 const scenes = {};
 const VIDEO_AMOUNT = 14;
 for (let i = 1; i < VIDEO_AMOUNT + 1; i++) {
@@ -31,6 +35,7 @@ wss.on("connection", (ws, req) => {
     if (msg.action === "ended" && nowPlaying && nowPlaying.deviceId === deviceId) {
       console.log(`~> Video ended on device ${deviceId}`);
       nowPlaying = null;
+      if (driftMode) driftStep(deviceId);
     }
   });
 
@@ -103,10 +108,33 @@ function stopClient(deviceId) {
 }
 
 function stopAll() {
+  driftMode = false;
+  driftSceneId = null;
   clients.forEach((_, deviceId) => stopClient(deviceId));
   stopAudio();
   nowPlaying = null;
   console.log(`~> Stopped all`);
+}
+
+function driftStep(excludeDeviceId = null) {
+  if (!driftMode) return;
+  if (clients.size === 0) return console.log("Drift: no devices connected");
+
+  if (driftSceneId === null) {
+    const start = Math.floor(Math.random() * VIDEO_AMOUNT) + 1;
+    driftSceneId = start.toString().padStart(2, "0");
+  } else {
+    const next = (parseInt(driftSceneId, 10) % VIDEO_AMOUNT) + 1;
+    driftSceneId = next.toString().padStart(2, "0");
+  }
+
+  const available = [...clients.keys()].filter((id) => id !== excludeDeviceId);
+  const deviceId = available.length > 0
+    ? available[Math.floor(Math.random() * available.length)]
+    : excludeDeviceId;
+
+  console.log(`~> Drift: scene ${driftSceneId} on device ${deviceId}`);
+  startVideo(deviceId, driftSceneId);
 }
 
 // CLI
@@ -115,7 +143,7 @@ const rl = readline.createInterface({
   output: process.stdout,
 });
 console.log(
-  "Commands: play <media-id> on <device-id>  |  switch <device-id>  |  stop <device-id>  |  stop",
+  "Commands: play <media-id> on <device-id>  |  switch <device-id>  |  stop <device-id>  |  stop  |  drift",
 );
 
 rl.on("line", (input) => {
@@ -142,6 +170,13 @@ rl.on("line", (input) => {
   // stop
   if (parts[0] === "stop") {
     stopAll();
+  }
+
+  if (parts[0] === "drift") {
+    driftMode = true;
+    driftSceneId = null;
+    driftStep();
+    return;
   }
 
   if (parts[0] === "party") {

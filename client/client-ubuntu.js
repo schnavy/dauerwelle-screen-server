@@ -20,6 +20,7 @@ ws.on("message", (raw) => {
     const seek = msg.timestamp ? `--start=${msg.timestamp.toFixed(2)}` : "";
     player = exec(
       `DISPLAY=:0 mpv --fullscreen ${seek} /home/david/player/client/videos/${msg.file}`,
+      (err) => { if (!err) ws.send(JSON.stringify({ action: "ended" })); },
     );
   }
   if (msg.action === "stop") {

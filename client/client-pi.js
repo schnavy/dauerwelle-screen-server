@@ -8,7 +8,7 @@ let player = null;
 
 ws.on("open", () => {
   console.log("Connected to server");
-  exec("dd if=/dev/zero of=/dev/fb0 bs=1M", { shell: true });
+  exec("DISPLAY=:0 xset dpms force off");
 });
 
 ws.on("message", (raw) => {
@@ -20,13 +20,14 @@ ws.on("message", (raw) => {
     const seek = msg.timestamp ? `--start=${msg.timestamp.toFixed(2)}` : "";
     player = exec(
       `DISPLAY=:0 mpv --fullscreen ${seek} /home/pi/Videos/${msg.file}`,
+      (err) => { if (!err) ws.send(JSON.stringify({ action: "ended" })); },
     );
   }
 
   if (msg.action === "stop") {
     exec("killall mpv");
     player = null;
-    exec("dd if=/dev/zero of=/dev/fb0 bs=1M", { shell: true });
+    exec("DISPLAY=:0 xset dpms force off");
   }
 });
 
