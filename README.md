@@ -40,7 +40,7 @@ Server (running server.js)
    Server (Mac) should use 10.0.0.1 on the switch interface.
 5. Transfer client to Pi
    ```
-   scp -r client/ pi@screen-pi-1.local:/home/pi/player/
+   rsync -avz --progress client/ pi@10.0.0.2:/home/pi/client/
    ```
 6. Install npm modules on the Pi
    ```

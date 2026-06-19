@@ -7,15 +7,18 @@ const wss = new WebSocketServer({ port: 8080 });
 const clients = new Map();
 let audioPlayer = null;
 
+const VIDEO_AMOUNT = 27;
+const PARTY_TIME = 2000;
+
 // global now-playing state
 let nowPlaying = null; // { sceneId, startTime }
 
 // drift mode state
 let driftMode = false;
 let driftSceneId = null;
+const DRIFT_START = "RANDOM"; // "RANDOM" or id
 
 const scenes = {};
-const VIDEO_AMOUNT = 14;
 for (let i = 1; i < VIDEO_AMOUNT + 1; i++) {
   const id = i.toString().padStart(2, "0");
   scenes[id] = { video: `${id}.mp4`, audio: `${id}.mp4` };
@@ -32,7 +35,11 @@ wss.on("connection", (ws, req) => {
 
   ws.on("message", (raw) => {
     const msg = JSON.parse(raw);
-    if (msg.action === "ended" && nowPlaying && nowPlaying.deviceId === deviceId) {
+    if (
+      msg.action === "ended" &&
+      nowPlaying &&
+      nowPlaying.deviceId === deviceId
+    ) {
       console.log(`~> Video ended on device ${deviceId}`);
       nowPlaying = null;
       if (driftMode) driftStep(deviceId);
@@ -121,7 +128,10 @@ function driftStep(excludeDeviceId = null) {
   if (clients.size === 0) return console.log("Drift: no devices connected");
 
   if (driftSceneId === null) {
-    const start = Math.floor(Math.random() * VIDEO_AMOUNT) + 1;
+    const start = DRIFT_START != "RANDOM"
+      ? DRIFT_START
+      : Math.floor(Math.random() * VIDEO_AMOUNT) + 1;
+
     driftSceneId = start.toString().padStart(2, "0");
   } else {
     const next = (parseInt(driftSceneId, 10) % VIDEO_AMOUNT) + 1;
@@ -129,9 +139,10 @@ function driftStep(excludeDeviceId = null) {
   }
 
   const available = [...clients.keys()].filter((id) => id !== excludeDeviceId);
-  const deviceId = available.length > 0
-    ? available[Math.floor(Math.random() * available.length)]
-    : excludeDeviceId;
+  const deviceId =
+    available.length > 0
+      ? available[Math.floor(Math.random() * available.length)]
+      : excludeDeviceId;
 
   console.log(`~> Drift: scene ${driftSceneId} on device ${deviceId}`);
   startVideo(deviceId, driftSceneId);
@@ -181,16 +192,21 @@ rl.on("line", (input) => {
 
   if (parts[0] === "party") {
     setInterval(() => {
+      const deviceIds = [...clients.keys()];
+      if (deviceIds.length === 0) return;
       if (!nowPlaying) {
-        let r = Math.floor(Math.random() * VIDEO_AMOUNT + 1);
-        console.log(r);
-        startVideo("2", "01");
+        const deviceId =
+          deviceIds[Math.floor(Math.random() * deviceIds.length)];
+        startVideo(deviceId, "01");
       } else {
-        let otherClient = nowPlaying.deviceId === "3" ? "2" : "3";
-        console.log(otherClient);
-        switchToClient(otherClient);
+        const others = deviceIds.filter((id) => id !== nowPlaying.deviceId);
+        const next =
+          others.length > 0
+            ? others[Math.floor(Math.random() * others.length)]
+            : nowPlaying.deviceId;
+        switchToClient(next);
       }
-    }, 5000);
+    }, PARTY_TIME);
     return;
   }
 });
