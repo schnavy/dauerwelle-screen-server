@@ -16,11 +16,18 @@ Server (running server.js)
 
 ### Prepare Setup
 1. Flash with Raspberry Pi OS, ssh enabled, set hostname (using wifi makes initial setup easier, because static IP over switch must be set separately)
-2. Connect via ssh and create player directory
+2. Connect via ssh and setup static IP
    ```
    ssh pi@screen-pi-1.local
-   mkdir /home/pi/player
+   
+   sudo nmcli con mod "Wired connection 1" ipv4.addresses 10.0.0.6/24 ipv4.gateway 10.0.0.1 ipv4.dns 8.8.8.8 ipv4.method manual
+
+   sudo nmcli con up "Wired connection 1"
    ```
+   Server (Mac) should use 10.0.0.1 on the switch interface.
+
+   From now on use ```ssh pi@10.0.0.X```
+
 3. Install dependencies on the Pi
    ```
    sudo apt update
@@ -31,26 +38,17 @@ Server (running server.js)
    curl -fsSL https://deb.nodesource.com/setup_lts.x | sudo -E bash -
    sudo apt install -y nodejs
    ```
-4. Setup Pi for static IP over switch
-   ```
-   sudo nmcli con mod "Wired connection 1" ipv4.addresses 10.0.0.6/24 ipv4.gateway 10.0.0.1 ipv4.dns 8.8.8.8 ipv4.method manual
-
-   sudo nmcli con up "Wired connection 1"
-   ```
-   Server (Mac) should use 10.0.0.1 on the switch interface.
-5. Transfer client to Pi
+4. Transfer client and videos to Pi
    ```
    rsync -avz --progress client/ pi@10.0.0.2:/home/pi/client/
+   rsync -avz --progress videos/ pi@10.0.0.X:/home/pi/Videos/
    ```
-6. Install npm modules on the Pi
+5. Install npm modules on the Pi and start app
    ```
-   ssh pi@screen-pi-1.local
-   cd /home/pi/player/client
+   cd /home/pi/client
    npm install
-   ```
-7. Create `.env` in the client directory on the Pi
-   ```
-   echo "SERVER_IP=10.0.0.1" > /home/pi/player/client/.env
+
+   node /home/pi/client/client-pi.js
    ```
 8. All connected clients should be documented in clients.json (for the moment only for overview, not technically needed)
 
