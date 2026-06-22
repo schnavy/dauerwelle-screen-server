@@ -49,6 +49,40 @@ Server (running server.js)
    ```
 8. All connected clients should be documented in clients.json (for the moment only for overview, not technically needed)
 
+### Using an Ubuntu machine as server (instead of Mac)
+
+The server currently runs on a Mac at 10.0.0.1. To move it to an Ubuntu machine:
+
+1. Find the ethernet interface connected to the switch
+   ```
+   nmcli con show
+   # or
+   ip link show
+   ```
+   Look for sth like `Wired connection 1` or an interface like `eth0` / `enp3s0`.
+
+2. Set static IP — replace "Wired connectio 1" with "eth0" etc. if needed
+    ```
+   sudo nmcli con mod "Wired connection 1" ipv4.addresses 10.0.0.1/24 ipv4.method manual
+   sudo nmcli con up "Wired connection 1"
+   ```
+   If the Ubuntu machine has multiple NICs (built-in ethernet, USB adapter, Wi-Fi), make sure you're modifying the one physically wired to the switch. Run `ip addr` after to confirm `10.0.0.1/24` is on the right interface.
+
+3. Verify connectivity
+   ```
+   ip addr show          # on Ubuntu — confirm 10.0.0.1/24 appears
+   ping 10.0.0.2         # from Ubuntu — confirm a Pi is reachable
+   ping 10.0.0.1         # from a Pi — confirm server is reachable
+   ```
+
+4. Install Node.js on Ubuntu and run the server
+   ```
+   sudo apt update && sudo apt install -y nodejs npm
+   node server.js
+   ```
+
+5. Audio: the server plays audio locally via `afplay`, which is macOS-only. On Ubuntu, replace the `afplay` call in `server.js` with `aplay` or `mpg123` depending on your audio setup, or comment it out if audio runs separately. (TODO)
+
 ### Media transfer
 1. Place video files in `videos/` in this repository. Each file must be .mp4 and named by its id/order: `01.mp4`, `02.mp4` etc.
 
