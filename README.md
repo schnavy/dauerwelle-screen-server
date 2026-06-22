@@ -15,31 +15,28 @@ Server (running server.js)
 ```
 
 ### Prepare Setup
-1. Flash with Raspberry Pi OS, ssh enabled, set hostname (using wifi makes initial setup easier, because static IP over switch must be set separately)
+1. Flash with Raspberry Pi OS, ssh enabled, set hostname as "screen-pi-X" while X will be identical to IP ending number.
 2. Connect via ssh and setup static IP
    ```
    ssh pi@screen-pi-1.local
    
    sudo nmcli con mod "Wired connection 1" ipv4.addresses 10.0.0.6/24 ipv4.gateway 10.0.0.1 ipv4.dns 8.8.8.8 ipv4.method manual
-
    sudo nmcli con up "Wired connection 1"
    ```
-   Server (Mac) should use 10.0.0.1 on the switch interface.
+   Server (currently Mac) uses 10.0.0.1 on the switch interface.
 
-   From now on use ```ssh pi@10.0.0.X```
+   From now on use ```ssh pi@10.0.0.X``` for ssh connection
 
 3. Install dependencies on the Pi
    ```
    sudo apt update
    sudo apt install -y mpv nodejs npm
    ```
-   Verify: `mpv --version` and `node --version` (needs v18+). If `apt` gives an older Node, install via [NodeSource](https://github.com/nodesource/distributions):
-   ```
-   curl -fsSL https://deb.nodesource.com/setup_lts.x | sudo -E bash -
-   sudo apt install -y nodejs
-   ```
+   Verify: `mpv --version` and `node --version` (needs v18+).
+
 4. Transfer client and videos to Pi
    ```
+   # from this repository root:
    rsync -avz --progress client/ pi@10.0.0.2:/home/pi/client/
    rsync -avz --progress videos/ pi@10.0.0.X:/home/pi/Videos/
    ```
@@ -53,16 +50,17 @@ Server (running server.js)
 8. All connected clients should be documented in clients.json (for the moment only for overview, not technically needed)
 
 ### Media transfer
-1. Place video files in a `videos/` directory on the server. Each file is named by its id: `01.mp4`, `02.mp4` etc.
+1. Place video files in `videos/` in this repository. Each file must be .mp4 and named by its id/order: `01.mp4`, `02.mp4` etc.
+
 2. Mirror to each Pi via rsync:
    ```
-   rsync -avz videos/ pi@screen-pi-1.local:/home/pi/Videos/
+   rsync -avz --progress videos/ pi@10.0.0.X:/home/pi/Videos/
    ```
 3. Set `VIDEO_AMOUNT` in `server.js` to match the number of files (TODO: read from file tree)
 
 ### Run Server and client
 
-On the server (Mac):
+On the server (from repository root):
 ```
 node server.js
 ```
@@ -72,18 +70,13 @@ play <media-id> on <device-id>   # e.g. play 03 on 2
 switch <device-id>               # move current video to another screen, keeping timestamp
 stop <device-id>                 # stop one screen
 stop                             # stop all
-drift                            # play clips sequentially, each on a random screen
-party                            # auto-switch every 5s between devices 2 and 3
+drift                            # play clips sequentially, each on a random screen. Starting clip can be set via DRIFT_START
+party                            # auto-switch every N seconds. N can be set in server.js as PARTY_DURATION
 ```
 `media-id` looks like `01`, `02`, `03`. `device-id` is the last octet of the Pi's IP (e.g. `2` for `10.0.0.2`).
 
-On each Pi:
+## Start client on pi
 ```
-cd /home/pi/player/client
-node client-pi.js
-```
-
-On Ubuntu client:
-```
-node client-ubuntu.js
+ssh pi@10.0.0.X
+node /home/pi/player/client/client-pi.js
 ```

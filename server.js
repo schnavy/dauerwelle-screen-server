@@ -8,7 +8,7 @@ const clients = new Map();
 let audioPlayer = null;
 
 const VIDEO_AMOUNT = 27;
-const PARTY_TIME = 2000;
+const PARTY_DURATION = 5000;
 
 // global now-playing state
 let nowPlaying = null; // { sceneId, startTime }
@@ -16,7 +16,7 @@ let nowPlaying = null; // { sceneId, startTime }
 // drift mode state
 let driftMode = false;
 let driftSceneId = null;
-const DRIFT_START = "RANDOM"; // "RANDOM" or id
+const DRIFT_START = 6; // "RANDOM" or id
 
 const scenes = {};
 for (let i = 1; i < VIDEO_AMOUNT + 1; i++) {
@@ -194,19 +194,10 @@ rl.on("line", (input) => {
     setInterval(() => {
       const deviceIds = [...clients.keys()];
       if (deviceIds.length === 0) return;
-      if (!nowPlaying) {
-        const deviceId =
-          deviceIds[Math.floor(Math.random() * deviceIds.length)];
-        startVideo(deviceId, "01");
-      } else {
-        const others = deviceIds.filter((id) => id !== nowPlaying.deviceId);
-        const next =
-          others.length > 0
-            ? others[Math.floor(Math.random() * others.length)]
-            : nowPlaying.deviceId;
-        switchToClient(next);
-      }
-    }, PARTY_TIME);
+      const deviceId = deviceIds[Math.floor(Math.random() * deviceIds.length)];
+      const sceneId = (Math.floor(Math.random() * VIDEO_AMOUNT) + 1).toString().padStart(2, "0");
+      startVideo(deviceId, sceneId);
+    }, PARTY_DURATION);
     return;
   }
 });
