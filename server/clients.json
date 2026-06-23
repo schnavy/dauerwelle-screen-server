@@ -1,0 +1,46 @@
+[
+  {
+    "deviceId": "2",
+    "hostname": "screen-pi-1",
+    "host": "10.0.0.2",
+    "hardware": "Pi 5",
+    "user": "pi",
+    "videoPath": "/home/pi/Videos"
+  },
+  {
+    "deviceId": "3",
+    "hostname": "screen-pi-3",
+    "host": "10.0.0.3",
+    "hardware": "Pi 4",
+    "owner": "Felix",
+    "user": "pi",
+    "videoPath": "/home/pi/Videos"
+  },
+  {
+    "deviceId": "4",
+    "hostname": "screen-pi-4",
+    "host": "10.0.0.4",
+    "hardware": "Pi 4",
+    "owner": "Cheng",
+    "user": "pi",
+    "videoPath": "/home/pi/Videos"
+  },
+  {
+    "deviceId": "5",
+    "hostname": "screen-pi-5",
+    "host": "10.0.0.5",
+    "hardware": "Pi 4",
+    "owner": "Cheng",
+    "user": "pi",
+    "videoPath": "/home/pi/Videos"
+  },
+  {
+    "deviceId": "6",
+    "hostname": "screen-pi-6",
+    "host": "10.0.0.6",
+    "hardware": "Pi 4",
+    "owner": "Cheng",
+    "user": "pi",
+    "videoPath": "/home/pi/Videos"
+  }
+]
