@@ -1,7 +1,6 @@
 import { WebSocketServer } from "ws";
 import * as readline from "readline";
 import { exec } from "child_process";
-import { log } from "console";
 
 const wss = new WebSocketServer({ port: 8080 });
 const clients = new Map();
@@ -10,13 +9,13 @@ let audioPlayer = null;
 const VIDEO_AMOUNT = 27;
 const PARTY_DURATION = 5000;
 
-// global now-playing state
-let nowPlaying = null; // { sceneId, startTime }
+let nowPlaying = null; // { deviceId, sceneId, startTime }
 
-// drift mode state
 let driftMode = false;
 let driftSceneId = null;
-const DRIFT_START = 6; // "RANDOM" or id
+const DRIFT_START = 6; // number or "RANDOM"
+
+let partyInterval = null;
 
 const scenes = {};
 for (let i = 1; i < VIDEO_AMOUNT + 1; i++) {
@@ -34,12 +33,10 @@ wss.on("connection", (ws, req) => {
   console.log(`  Connected devices: ${[...clients.keys()].join(", ")}`);
 
   ws.on("message", (raw) => {
-    const msg = JSON.parse(raw);
-    if (
-      msg.action === "ended" &&
-      nowPlaying &&
-      nowPlaying.deviceId === deviceId
-    ) {
+    let msg;
+    try { msg = JSON.parse(raw); } catch (e) { return; }
+
+    if (msg.action === "ended" && nowPlaying && nowPlaying.deviceId === deviceId) {
       console.log(`~> Video ended on device ${deviceId}`);
       nowPlaying = null;
       if (driftMode) driftStep(deviceId);
@@ -47,9 +44,17 @@ wss.on("connection", (ws, req) => {
   });
 
   ws.on("close", () => {
+    const wasActive = nowPlaying && nowPlaying.deviceId === deviceId;
     clients.delete(deviceId);
     console.log(`Device disconnected: ${deviceId}`);
     console.log(`  Connected devices: ${[...clients.keys()].join(", ")}`);
+    if (wasActive) {
+      nowPlaying = null;
+      if (driftMode) {
+        console.log(`~> Active device disconnected, advancing drift`);
+        driftStep(deviceId);
+      }
+    }
   });
 });
 
@@ -77,12 +82,20 @@ function startVideo(deviceId, sceneId) {
 
   nowPlaying = { deviceId, sceneId, startTime: Date.now() };
 
-  audioPlayer = exec(
-    `afplay /Users/david/GIT/dauerwelle-screen-server/videos/${scene.audio}`,
-  );
+  // audioPlayer = exec(
+  //   `afplay /Users/david/GIT/dauerwelle-screen-server/videos/${scene.audio}`,
+  // );
 
   client.send(
     JSON.stringify({ action: "play", file: scene.video, timestamp: 0 }),
+    (err) => {
+      if (err) {
+        console.error(`~> Send error to device ${deviceId}:`, err.message);
+        clients.delete(deviceId);
+        nowPlaying = null;
+        if (driftMode) driftStep(deviceId);
+      }
+    },
   );
   console.log(`~> Scene ${sceneId} started on device ${deviceId}`);
 }
@@ -100,7 +113,6 @@ function switchToClient(deviceId) {
 
   const scene = scenes[nowPlaying.sceneId];
   const timestamp = getElapsed();
-  console.log("new: " + deviceId + " at " + timestamp);
   client.send(JSON.stringify({ action: "play", file: scene.video, timestamp }));
   nowPlaying.deviceId = deviceId;
   console.log(`~> Switched to device ${deviceId} at ${timestamp.toFixed(2)}s`);
@@ -108,8 +120,7 @@ function switchToClient(deviceId) {
 
 function stopClient(deviceId) {
   const client = clients.get(deviceId);
-  if (!client) return console.log(`Device not connected: ${deviceId}`);
-
+  if (!client) return;
   client.send(JSON.stringify({ action: "stop" }));
   console.log(`~> Stopped ${deviceId}`);
 }
@@ -117,6 +128,7 @@ function stopClient(deviceId) {
 function stopAll() {
   driftMode = false;
   driftSceneId = null;
+  if (partyInterval) { clearInterval(partyInterval); partyInterval = null; }
   clients.forEach((_, deviceId) => stopClient(deviceId));
   stopAudio();
   nowPlaying = null;
@@ -125,13 +137,12 @@ function stopAll() {
 
 function driftStep(excludeDeviceId = null) {
   if (!driftMode) return;
-  if (clients.size === 0) return console.log("Drift: no devices connected");
+  if (clients.size === 0) return console.log("Drift: no devices connected, waiting...");
 
   if (driftSceneId === null) {
-    const start = DRIFT_START != "RANDOM"
+    const start = DRIFT_START !== "RANDOM"
       ? DRIFT_START
       : Math.floor(Math.random() * VIDEO_AMOUNT) + 1;
-
     driftSceneId = start.toString().padStart(2, "0");
   } else {
     const next = (parseInt(driftSceneId, 10) % VIDEO_AMOUNT) + 1;
@@ -139,48 +150,39 @@ function driftStep(excludeDeviceId = null) {
   }
 
   const available = [...clients.keys()].filter((id) => id !== excludeDeviceId);
-  const deviceId =
-    available.length > 0
-      ? available[Math.floor(Math.random() * available.length)]
-      : excludeDeviceId;
+  const deviceId = available.length > 0
+    ? available[Math.floor(Math.random() * available.length)]
+    : excludeDeviceId;
 
   console.log(`~> Drift: scene ${driftSceneId} on device ${deviceId}`);
   startVideo(deviceId, driftSceneId);
 }
 
 // CLI
-const rl = readline.createInterface({
-  input: process.stdin,
-  output: process.stdout,
-});
-console.log(
-  "Commands: play <media-id> on <device-id>  |  switch <device-id>  |  stop <device-id>  |  stop  |  drift",
-);
+const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+console.log("Commands: play <media-id> on <device-id>  |  switch <device-id>  |  stop <device-id>  |  stop  |  drift  |  party");
 
 rl.on("line", (input) => {
   const parts = input.trim().split(" ");
 
-  // play 01 on 2
   if (parts[0] === "play" && parts[2] === "on" && parts[3]) {
     startVideo(parts[3], parts[1]);
     return;
   }
 
-  // switch 3
   if (parts[0] === "switch" && parts[1]) {
     switchToClient(parts[1]);
     return;
   }
 
-  // stop 2
   if (parts[0] === "stop" && parts[1]) {
     stopClient(parts[1]);
     return;
   }
 
-  // stop
   if (parts[0] === "stop") {
     stopAll();
+    return;
   }
 
   if (parts[0] === "drift") {
@@ -191,7 +193,8 @@ rl.on("line", (input) => {
   }
 
   if (parts[0] === "party") {
-    setInterval(() => {
+    if (partyInterval) clearInterval(partyInterval);
+    partyInterval = setInterval(() => {
       const deviceIds = [...clients.keys()];
       if (deviceIds.length === 0) return;
       const deviceId = deviceIds[Math.floor(Math.random() * deviceIds.length)];
