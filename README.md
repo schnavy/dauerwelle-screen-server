@@ -92,6 +92,7 @@ The server currently runs on a Mac at 10.0.0.1. To move it to an Ubuntu machine:
    ```
 3. Set `VIDEO_AMOUNT` in `server.js` to match the number of files (TODO: read from file tree)
 
+
 ### Run Server and client
 
 On the server (from repository root):
@@ -112,5 +113,44 @@ party                            # auto-switch every N seconds. N can be set in 
 ## Start client on pi
 ```
 ssh pi@10.0.0.X
-node /home/pi/player/client/client-pi.js
+node /home/pi/client/client-pi.js
 ```
+
+### Autostart on boot (systemd)
+
+**On each Pi** — install and enable the client service:
+```bash
+   scp scripts/dauerwelle-client.service pi@10.0.0.X:/tmp/
+   ssh pi@10.0.0.X
+  
+   sudo mv /tmp/dauerwelle-client.service /etc/systemd/system/
+   sudo systemctl daemon-reload
+   sudo systemctl enable dauerwelle-client
+   sudo systemctl start dauerwelle-client
+```
+
+Check status / logs:
+```bash
+sudo systemctl status dauerwelle-client
+journalctl -u dauerwelle-client -f
+```
+
+**On the Ubuntu server** — install and enable the server service:
+```bash
+scp scripts/dauerwelle-server.service david@10.0.0.1:/tmp/
+ssh david@10.0.0.1
+
+sudo cp /home/david/server/scripts/dauerwelle-server.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable dauerwelle-server
+sudo systemctl start dauerwelle-server
+(sudo systemctl stop dauerwelle-server)
+```
+
+Check status / logs:
+```bash
+sudo systemctl status dauerwelle-server
+journalctl -u dauerwelle-server -f
+```
+
+> **Note:** When running as a service, the server's CLI (play, drift, stop…) is not available via stdin. Stop the service first (`sudo systemctl stop dauerwelle-server`) and run `node server/server.js` manually for interactive control. The service is best used for unattended drift mode.

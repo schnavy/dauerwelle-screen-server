@@ -1,0 +1,15 @@
+[Unit]
+Description=Dauerwelle Screen Server
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=david
+WorkingDirectory=/home/david/GIT/dauerwelle-screen-server/server
+ExecStart=/usr/bin/node /home/david/GIT/dauerwelle-screen-server/server/server.js
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
