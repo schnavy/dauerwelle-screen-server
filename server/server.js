@@ -160,7 +160,7 @@ function driftStep(excludeDeviceId = null) {
 
 // CLI
 const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
-console.log("Commands: play <media-id> on <device-id>  |  switch <device-id>  |  stop <device-id>  |  stop  |  drift  |  party");
+console.log("Commands: play <media-id> on <device-id>  |  switch <device-id>  |  stop <device-id>  |  stop  |  drift  |  party  |  scatter");
 
 rl.on("line", (input) => {
   const parts = input.trim().split(" ");
@@ -182,6 +182,17 @@ rl.on("line", (input) => {
 
   if (parts[0] === "stop") {
     stopAll();
+    return;
+  }
+
+  if (parts[0] === "scatter") {
+    stopAudio();
+    nowPlaying = null;
+    clients.forEach((ws, deviceId) => {
+      const sceneId = (Math.floor(Math.random() * VIDEO_AMOUNT) + 1).toString().padStart(2, "0");
+      ws.send(JSON.stringify({ action: "play", file: scenes[sceneId].video, timestamp: 0 }));
+      console.log(`~> Scatter: scene ${sceneId} on device ${deviceId}`);
+    });
     return;
   }
 
