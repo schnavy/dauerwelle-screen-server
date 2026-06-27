@@ -5,6 +5,7 @@
     "host": "10.0.0.2",
     "hardware": "Pi 5",
     "user": "pi",
+    "password": "pi",
     "videoPath": "/home/pi/Videos"
   },
   {
@@ -14,6 +15,7 @@
     "hardware": "Pi 4",
     "owner": "Felix",
     "user": "pi",
+    "password": "pi",
     "videoPath": "/home/pi/Videos"
   },
   {
@@ -23,6 +25,7 @@
     "hardware": "Pi 4",
     "owner": "Cheng",
     "user": "pi",
+    "password": "pi",
     "videoPath": "/home/pi/Videos"
   },
   {
@@ -32,6 +35,7 @@
     "hardware": "Pi 4",
     "owner": "Cheng",
     "user": "pi",
+    "password": "pi",
     "videoPath": "/home/pi/Videos"
   },
   {
@@ -41,6 +45,7 @@
     "hardware": "Pi 4",
     "owner": "Cheng",
     "user": "pi",
+    "password": "pi",
     "videoPath": "/home/pi/Videos"
   }
 ]
