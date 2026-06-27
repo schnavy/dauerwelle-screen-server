@@ -16,6 +16,7 @@ let driftSceneId = null;
 const DRIFT_START = 6; // number or "RANDOM"
 
 let partyInterval = null;
+let driftTrace = false;
 
 const scenes = {};
 for (let i = 1; i < VIDEO_AMOUNT + 1; i++) {
@@ -128,6 +129,7 @@ function stopClient(deviceId) {
 function stopAll() {
   driftMode = false;
   driftSceneId = null;
+  driftTrace = false;
   if (partyInterval) { clearInterval(partyInterval); partyInterval = null; }
   clients.forEach((_, deviceId) => stopClient(deviceId));
   stopAudio();
@@ -138,6 +140,8 @@ function stopAll() {
 function driftStep(excludeDeviceId = null) {
   if (!driftMode) return;
   if (clients.size === 0) return console.log("Drift: no devices connected, waiting...");
+
+  const previousSceneId = driftSceneId;
 
   if (driftSceneId === null) {
     const start = DRIFT_START !== "RANDOM"
@@ -156,6 +160,15 @@ function driftStep(excludeDeviceId = null) {
 
   console.log(`~> Drift: scene ${driftSceneId} on device ${deviceId}`);
   startVideo(deviceId, driftSceneId);
+
+  if (driftTrace && excludeDeviceId && previousSceneId) {
+    const traceClient = clients.get(excludeDeviceId);
+    if (traceClient) {
+      const traceFile = `${previousSceneId}-trace.mp4`;
+      traceClient.send(JSON.stringify({ action: "play", file: traceFile, timestamp: 0 }));
+      console.log(`~> Trace: ${traceFile} on device ${excludeDeviceId}`);
+    }
+  }
 }
 
 // CLI
@@ -198,7 +211,9 @@ rl.on("line", (input) => {
 
   if (parts[0] === "drift") {
     driftMode = true;
+    driftTrace = parts.includes("--trace");
     driftSceneId = null;
+    console.log(`~> Drift mode started${driftTrace ? " (trace)" : ""}`);
     driftStep();
     return;
   }
