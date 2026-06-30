@@ -33,21 +33,11 @@ Everything restarts automatically.
 
 ## Debugging via laptop
 
-Plug the laptop into the switch. Set its IP to the same subnet:
-
+Tehre is a Lenovo Thinkpad in the Kitchen. Plug the laptop into the switch with an extra Ethernet Cable.
 ```
-# Mac:
-System Settings → Network → Ethernet → Manual
-IP: 10.0.0.9   Subnet: 255.255.255.0   Router: (leave empty)
-
-# Ubuntu/Linux:
-sudo nmcli con mod "Wired connection 1" ipv4.addresses 10.0.0.9/24 ipv4.method manual
-sudo nmcli con up "Wired connection 1"
+user: t450s
+pw: t450s
 ```
-
-Verify connection: `ping 10.0.0.1`
-
----
 
 ## SSH into server
 
@@ -56,7 +46,7 @@ ssh david@10.0.0.1
 ```
 Password: `david`
 
-Attach to the running session:
+Attach to the running session (see what is happening):
 ```
 tmux -S /tmp/dauerwelle.sock attach -t dauerwelle
 ```
@@ -91,6 +81,8 @@ quit              stop the server (keeps terminal open)
 
 ```
 ssh pi@10.0.0.2
+
+(the IP has to match the Pi. List of IP at bottom of this file)
 ```
 Password: `pi`
 
@@ -101,12 +93,13 @@ tmux -S /tmp/dauerwelle.sock attach -t dauerwelle
 
 Detach: `Ctrl+B, D`
 
-| Screen | IP       |
-|--------|----------|
-| Pi 1   | 10.0.0.2 |
-| Pi 2   | 10.0.0.3 |
-| Pi 3   | 10.0.0.4 |
-| Pi 4   | 10.0.0.5 |
+| Device id (Pi) | IP       |
+|----------------|----------|
+| 2              | 10.0.0.2 |
+| 3              | 10.0.0.3 |
+| 4              | 10.0.0.4 |
+| 5              | 10.0.0.5 |
+| 6              | 10.0.0.6 |
 
 ---
 
