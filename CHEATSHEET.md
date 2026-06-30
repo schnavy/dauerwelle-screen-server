@@ -26,7 +26,7 @@ If multiple screens are stuck:
 
 **Power cycle all Pis.** Unplug and replug them all. They reconnect and drift resumes.
 
-**If the server itself seems frozen:** power cycle the ThinkPad.
+**If the server itself seems frozen:** power cycle the ThinkCentre.
 Everything restarts automatically.
 
 ---
