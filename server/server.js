@@ -158,7 +158,7 @@ function driftStep(excludeDeviceId = null) {
 
 // CLI
 const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
-console.log("Commands: play <id> on <device>  |  switch <device>  |  stop [device]  |  drift [--trace]  |  party  |  scatter  |  restart  |  quit");
+console.log("Commands: play <id> on <device>  |  switch <device>  |  stop [device]  |  drift [--trace]  |  party  |  scatter  |  testpattern  |  restart  |  quit");
 
 rl.on("line", (input) => {
   const parts = input.trim().split(" ");
@@ -168,6 +168,15 @@ rl.on("line", (input) => {
   if (cmd === "switch" && parts[1]) return switchToClient(parts[1]);
   if (cmd === "stop" && parts[1]) return stopClient(parts[1]);
   if (cmd === "stop") return stopAll();
+
+  if (cmd === "testpattern") {
+    stopAll();
+    clients.forEach((ws, deviceId) => {
+      ws.send(JSON.stringify({ action: "play", file: "test.png", timestamp: 0 }));
+      console.log(`~> Test pattern on device ${deviceId}`);
+    });
+    return;
+  }
 
   if (cmd === "scatter") {
     nowPlaying = null;

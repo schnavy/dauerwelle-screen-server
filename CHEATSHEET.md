@@ -1,107 +1,121 @@
 # Dauerwelle – Exhibition Cheatsheet
 
+---
+
 ## Morning startup
 
-1. Power on server (ThinkPad) and all Pis
-2. SSH into server and attach to the running session:
-   ```
-   ssh david@10.0.0.1
-   tmux -S /tmp/dauerwelle.sock attach -t dauerwelle
-   ```
-   The server starts automatically and begins drift mode as Pis connect.
+1. Power on the server (ThinkPad) and all Pis — everything starts automatically
+2. Drift mode begins as soon as the Pis connect to the server (within ~30 seconds)
 
-3. If the server session doesn't exist (e.g. first boot after setup):
-   ```
-   bash /home/david/server/start.sh
-   ```
-
-Detach from tmux without stopping anything: `Ctrl+Space, D`
+Nothing else required.
 
 ---
 
-## Check Pi status
+## Evening / end of day
 
-```
-ssh pi@10.0.0.2
-tmux -S /tmp/dauerwelle.sock attach -t dauerwelle
-```
-
-Replace `10.0.0.2` with the Pi's IP (`10.0.0.2` – `10.0.0.5`).
-
-Detach: `Ctrl+Space, D`
-
----
-
-## Server commands
-
-```
-drift          start drift mode (default on startup)
-stop           stop all screens
-stop 2         stop screen 2 only
-play 03 on 2   play clip 03 on screen 2
-scatter        play a random clip on every screen
-restart        restart all Pi clients
-quit           stop the server (keeps terminal open)
-```
+Just power everything off. No graceful shutdown needed.
 
 ---
 
 ## Something is stuck / not playing
 
-**One screen stuck:** stop and let drift continue
-```
-stop 2
-```
+**Try this first — power cycle the affected Pi.**
+Unplug and replug the Pi. It restarts automatically and reconnects within ~30 seconds.
 
-**Drift stopped completely:** restart drift
-```
-drift
-```
+If multiple screens are stuck:
 
-**A Pi not responding:** restart all clients
-```
-restart
-```
-Clients reconnect within 5 seconds and drift resumes.
+**Power cycle all Pis.** Unplug and replug them all. They reconnect and drift resumes.
 
-**Still stuck:** restart the specific Pi manually
-```
-ssh pi@10.0.0.X
-tmux -S /tmp/dauerwelle.sock attach -t dauerwelle
-# Ctrl+C to stop, then:
-bash /home/pi/client/start.sh
-```
+**If the server itself seems frozen:** power cycle the ThinkPad.
+Everything restarts automatically.
 
 ---
 
-## Server crashed / not running
+## Debugging via laptop
+
+Plug the laptop into the switch. Set its IP to the same subnet:
+
+```
+# Mac:
+System Settings → Network → Ethernet → Manual
+IP: 10.0.0.9   Subnet: 255.255.255.0   Router: (leave empty)
+
+# Ubuntu/Linux:
+sudo nmcli con mod "Wired connection 1" ipv4.addresses 10.0.0.9/24 ipv4.method manual
+sudo nmcli con up "Wired connection 1"
+```
+
+Verify connection: `ping 10.0.0.1`
+
+---
+
+## SSH into server
 
 ```
 ssh david@10.0.0.1
+```
+Password: `david`
+
+Attach to the running session:
+```
+tmux -S /tmp/dauerwelle.sock attach -t dauerwelle
+```
+
+Detach without stopping anything: `Ctrl+B, D`
+
+If no session exists (first boot after reinstall):
+```
 bash /home/david/server/start.sh
 ```
 
-Pis reconnect automatically within 5 seconds.
+---
+
+## Server commands
+
+Type these in the server tmux session:
+
+```
+drift             restart drift mode
+stop              stop all screens
+stop 2            stop screen 2 only
+play 03 on 2      play clip 03 on screen 2
+scatter           play a random clip on every screen simultaneously
+testpattern       show test image on all screens
+restart           restart all Pi clients (reconnect within 5s)
+quit              stop the server (keeps terminal open)
+```
 
 ---
 
-## Check logs
+## SSH into a Pi
+
+```
+ssh pi@10.0.0.2
+```
+Password: `pi`
+
+Attach to the running session:
+```
+tmux -S /tmp/dauerwelle.sock attach -t dauerwelle
+```
+
+Detach: `Ctrl+B, D`
+
+| Screen | IP       |
+|--------|----------|
+| Pi 1   | 10.0.0.2 |
+| Pi 2   | 10.0.0.3 |
+| Pi 3   | 10.0.0.4 |
+| Pi 4   | 10.0.0.5 |
+
+---
+
+## Check logs (via SSH)
 
 ```
 # Server
 tail -f /home/david/server/logs/server.log
 
-# Pi (SSH in first)
+# Pi
 tail -f /home/pi/client/logs/client.log
 ```
-
----
-
-## Pi IPs
-
-| Screen | IP        |
-|--------|-----------|
-| Pi 1   | 10.0.0.2  |
-| Pi 2   | 10.0.0.3  |
-| Pi 3   | 10.0.0.4  |
-| Pi 4   | 10.0.0.5  |
