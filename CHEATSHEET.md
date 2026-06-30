@@ -93,6 +93,13 @@ tmux -S /tmp/dauerwelle.sock attach -t dauerwelle
 
 Detach: `Ctrl+B, D`
 
+
+Reboot Pi for full restart and reconnect:
+```
+sudo reboot
+(pw: pi)
+```
+
 | Device id (Pi) | IP       |
 |----------------|----------|
 | 2              | 10.0.0.2 |
