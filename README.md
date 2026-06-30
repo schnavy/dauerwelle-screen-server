@@ -1,12 +1,11 @@
-_Dauerwelle "Drift as a Method" – Breminale 2026_
+_Dauerwelle "Drift as a Method" – Breminale 2026_
 
 ## Setup for algorithmic video screening network.
-Currently set up for testing on mac as server and Raspberry Pi 5 and ubunutu laptop as clients
 
 ```
-Server (running server.js)
+Server (Ubuntu ThinkPad, 10.0.0.1, running server.js)
 -> Switch
-  -> Pi 1 (running client.js)
+  -> Pi 1 (running client-pi.js)
     -> Projector
   -> Pi 2
     -> Projector
@@ -14,143 +13,132 @@ Server (running server.js)
     -> Projector
 ```
 
-### Prepare Setup
-1. Flash with Raspberry Pi OS, ssh enabled, set hostname as "screen-pi-X" while X will be identical to IP ending number.
-2. Connect via ssh and setup static IP
+### Prepare Pis
+
+1. Flash with Raspberry Pi OS, ssh enabled, set hostname as `screen-pi-X` where X matches the IP ending.
+
+2. Connect via SSH and set static IP:
    ```
    ssh pi@screen-pi-1.local
-   
-   sudo nmcli con mod "Wired connection 1" ipv4.addresses 10.0.0.6/24 ipv4.gateway 10.0.0.1 ipv4.dns 8.8.8.8 ipv4.method manual
+
+   sudo nmcli con mod "Wired connection 1" ipv4.addresses 10.0.0.X/24 ipv4.gateway 10.0.0.1 ipv4.dns 8.8.8.8 ipv4.method manual
    sudo nmcli con up "Wired connection 1"
    ```
-   Server (currently Mac) uses 10.0.0.1 on the switch interface.
+   From now on use `ssh pi@10.0.0.X`.
 
-   From now on use ```ssh pi@10.0.0.X``` for ssh connection
-
-3. Install dependencies on the Pi
+3. Install dependencies:
    ```
    sudo apt update
    sudo apt install -y mpv nodejs npm
    ```
    Verify: `mpv --version` and `node --version` (needs v18+).
 
-4. Transfer client and videos to Pi
+4. Deploy client and videos from this repo:
    ```
-   # from this repository root:
-   rsync -avz --progress client/ pi@10.0.0.2:/home/pi/client/
-   rsync -avz --progress videos/ pi@10.0.0.X:/home/pi/Videos/
+   ./scripts/sync-client.sh
+   ./scripts/sync-videos.sh
    ```
-5. Install npm modules on the Pi and start app
+
+5. Install npm modules on the Pi:
    ```
-   cd /home/pi/client
-   npm install
-
-   node /home/pi/client/client-pi.js
+   ssh pi@10.0.0.X
+   cd /home/pi/client && npm install
    ```
-8. All connected clients should be documented in clients.json (for the moment only for overview, not technically needed)
 
-### Using an Ubuntu machine as server (instead of Mac)
+6. Add the Pi to `server/clients.json`.
 
-The server currently runs on a Mac at 10.0.0.1. To move it to an Ubuntu machine:
+Clients autostart on boot via crontab (set by `sync-client.sh`). To attach:
+```
+ssh pi@10.0.0.X
+tmux -S /tmp/dauerwelle.sock attach -t dauerwelle
+```
 
-1. Find the ethernet interface connected to the switch
+### Prepare Server (Ubuntu)
+
+1. Find the ethernet interface connected to the switch:
    ```
    nmcli con show
-   # or
-   ip link show
    ```
-   Look for sth like `Wired connection 1` or an interface like `eth0` / `enp3s0`.
 
-2. Set static IP — replace "Wired connectio 1" with "eth0" etc. if needed
-    ```
+2. Set static IP:
+   ```
    sudo nmcli con mod "Wired connection 1" ipv4.addresses 10.0.0.1/24 ipv4.method manual
    sudo nmcli con up "Wired connection 1"
    ```
-   If the Ubuntu machine has multiple NICs (built-in ethernet, USB adapter, Wi-Fi), make sure you're modifying the one physically wired to the switch. Run `ip addr` after to confirm `10.0.0.1/24` is on the right interface.
 
-3. Verify connectivity
-   ```
-   ip addr show          # on Ubuntu — confirm 10.0.0.1/24 appears
-   ping 10.0.0.2         # from Ubuntu — confirm a Pi is reachable
-   ping 10.0.0.1         # from a Pi — confirm server is reachable
-   ```
-
-4. Install Node.js on Ubuntu and run the server
+3. Install Node.js:
    ```
    sudo apt update && sudo apt install -y nodejs npm
-   node server.js
    ```
 
-5. Audio: the server plays audio locally via `afplay`, which is macOS-only. On Ubuntu, replace the `afplay` call in `server.js` with `aplay` or `mpg123` depending on your audio setup, or comment it out if audio runs separately. (TODO)
-
-### Media transfer
-1. Place video files in `videos/` in this repository. Each file must be .mp4 and named by its id/order: `01.mp4`, `02.mp4` etc.
-
-2. Mirror to each Pi via rsync:
+4. Deploy server from this repo:
    ```
-   rsync -avz --progress videos/ pi@10.0.0.X:/home/pi/Videos/
+   ./scripts/sync-server.sh
    ```
-3. Set `VIDEO_AMOUNT` in `server.js` to match the number of files (TODO: read from file tree)
 
+5. Install npm modules on the server:
+   ```
+   ssh david@10.0.0.1
+   cd /home/david/server && npm install
+   ```
 
-### Run Server and client
+6. Set up autostart via crontab:
+   ```
+   crontab -e
+   ```
+   Add:
+   ```
+   @reboot /usr/bin/tmux -S /tmp/dauerwelle.sock new-session -d -s dauerwelle 'bash /home/david/server/start.sh'
+   ```
 
-On the server (from repository root):
+To attach after reboot:
 ```
-node server.js
+ssh david@10.0.0.1
+tmux -S /tmp/dauerwelle.sock attach -t dauerwelle
 ```
-Commands:
+
+### Media
+
+Place video files in `videos/`. Each file must be `.mp4` named by order: `01.mp4`, `02.mp4` etc.
+
+For testing, add `-test` variants: `01-test.mp4`, `02-test.mp4` etc.
+
+Set `VIDEO_AMOUNT` in `server.js` to match the number of files.
+
+Sync to all Pis:
+```
+./scripts/sync-videos.sh
+```
+
+### Server Commands
+
+Start:
+```
+node server.js          # normal mode
+node server.js --test   # uses XX-test.mp4 files
+```
+
+The server starts in drift mode automatically when clients connect.
+
 ```
 play <media-id> on <device-id>   # e.g. play 03 on 2
 switch <device-id>               # move current video to another screen, keeping timestamp
 stop <device-id>                 # stop one screen
-stop                             # stop all
-drift                            # play clips sequentially, each on a random screen. Starting clip can be set via DRIFT_START
-party                            # auto-switch every N seconds. N can be set in server.js as PARTY_DURATION
-```
-`media-id` looks like `01`, `02`, `03`. `device-id` is the last octet of the Pi's IP (e.g. `2` for `10.0.0.2`).
-
-## Start client on pi
-```
-ssh pi@10.0.0.X
-node /home/pi/client/client-pi.js
+stop                             # stop all screens and exit drift/party mode
+drift [--trace]                  # play clips sequentially (n+1), each on a random screen
+party                            # auto-switch to a random clip every PARTY_DURATION ms
+scatter                          # play a random clip on every screen simultaneously
+restart                          # restart all connected clients
+quit                             # stop the server (keeps tmux session alive)
 ```
 
-### Autostart on boot (systemd)
+`media-id`: `01`, `02` etc. `device-id`: last IP octet (`2` for `10.0.0.2`).
 
-**On each Pi** — install and enable the client service:
-```bash
-   scp scripts/dauerwelle-client.service pi@10.0.0.X:/tmp/
-   ssh pi@10.0.0.X
-  
-   sudo mv /tmp/dauerwelle-client.service /etc/systemd/system/
-   sudo systemctl daemon-reload
-   sudo systemctl enable dauerwelle-client
-   sudo systemctl start dauerwelle-client
+### Logs
+
+```
+tail -f /home/david/server/logs/server.log   # server
+tail -f /home/pi/client/logs/client.log      # on each Pi
 ```
 
-Check status / logs:
-```bash
-sudo systemctl status dauerwelle-client
-journalctl -u dauerwelle-client -f
-```
-
-**On the Ubuntu server** — install and enable the server service:
-```bash
-scp scripts/dauerwelle-server.service david@10.0.0.1:/tmp/
-ssh david@10.0.0.1
-
-sudo cp /home/david/server/scripts/dauerwelle-server.service /etc/systemd/system/
-sudo systemctl daemon-reload
-sudo systemctl enable dauerwelle-server
-sudo systemctl start dauerwelle-server
-(sudo systemctl stop dauerwelle-server)
-```
-
-Check status / logs:
-```bash
-sudo systemctl status dauerwelle-server
-journalctl -u dauerwelle-server -f
-```
-
-> **Note:** When running as a service, the server's CLI (play, drift, stop…) is not available via stdin. Stop the service first (`sudo systemctl stop dauerwelle-server`) and run `node server/server.js` manually for interactive control. The service is best used for unattended drift mode.
+Logs rotate automatically at 10MB.

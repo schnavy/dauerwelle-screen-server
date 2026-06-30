@@ -4,10 +4,12 @@ After=network-online.target
 Wants=network-online.target
 
 [Service]
-Type=simple
+Type=oneshot
+RemainAfterExit=yes
 User=david
-WorkingDirectory=/home/david/GIT/dauerwelle-screen-server/server
-ExecStart=/usr/bin/node /home/david/GIT/dauerwelle-screen-server/server/server.js
+WorkingDirectory=/home/david/server
+ExecStart=/usr/bin/tmux -S /tmp/dauerwelle.sock new-session -d -s dauerwelle 'node /home/david/server/server.js'
+ExecStop=/usr/bin/tmux -S /tmp/dauerwelle.sock kill-session -t dauerwelle
 Restart=on-failure
 RestartSec=3
 

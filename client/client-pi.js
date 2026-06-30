@@ -4,18 +4,25 @@ import { exec } from "child_process";
 import net from "net";
 import fs from "fs";
 
-const SERVER_IP = process.env.SERVER_IP;
-const ws = new WebSocket(`ws://${SERVER_IP}:8080`);
+function ts() { return new Date().toLocaleString("sv", { timeZone: "Europe/Berlin" }); }
+const _log = console.log.bind(console);
+const _err = console.error.bind(console);
+console.log = (...args) => _log(`[${ts()}]`, ...args);
+console.error = (...args) => _err(`[${ts()}] ERROR:`, ...args);
 
+const SERVER_IP = process.env.SERVER_IP;
 const VIDEO_DIR = "/home/pi/Videos";
 const SOCKET_PATH = "/tmp/mpv-socket";
 
+let mpvProc = null;
 let mpvSocket = null;
 let socketReady = false;
 let socketBuffer = "";
 let wasPlaying = false;
-let pendingCommand = null; // single-slot: only the latest play/stop matters
-let startingMpv = false;
+let pendingCommand = null;
+let intentionalKill = false;
+
+const ws = new WebSocket(`ws://${SERVER_IP}:8080`);
 
 function sendMpvCommand(args) {
   if (socketReady && mpvSocket && !mpvSocket.destroyed) {
@@ -52,9 +59,7 @@ function connectMpvSocket(retries = 20) {
             wasPlaying = true;
           } else if (event.data === true && wasPlaying) {
             wasPlaying = false;
-            if (ws.readyState === WebSocket.OPEN) {
-              ws.send(JSON.stringify({ action: "ended" }));
-            }
+            if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ action: "ended" }));
           }
         }
       } catch (e) {}
@@ -64,40 +69,38 @@ function connectMpvSocket(retries = 20) {
   socket.on("error", () => {
     socketReady = false;
     socket.destroy();
-    if (retries > 0) {
-      setTimeout(() => connectMpvSocket(retries - 1), 200);
-    } else {
-      console.error("Could not connect to mpv socket, restarting mpv...");
-      setTimeout(() => startMpv(), 2000);
-    }
+    if (retries > 0) setTimeout(() => connectMpvSocket(retries - 1), 200);
+    else console.error("Could not connect to mpv socket after retries");
   });
 
-  socket.on("close", () => {
-    socketReady = false;
-    if (startingMpv) return;
-    // mpv crashed unexpectedly — notify server and restart
-    if (wasPlaying && ws.readyState === WebSocket.OPEN) {
-      wasPlaying = false;
-      ws.send(JSON.stringify({ action: "ended" }));
-    }
-    console.log("mpv socket closed unexpectedly, restarting mpv...");
-    setTimeout(() => startMpv(), 1000);
-  });
+  socket.on("close", () => { socketReady = false; });
 }
 
 function startMpv() {
-  startingMpv = true;
+  intentionalKill = true;
   socketBuffer = "";
-  exec("killall mpv; sleep 0.5", () => {
-    try { fs.unlinkSync(SOCKET_PATH); } catch (e) {}
-    startingMpv = false;
-    wasPlaying = false;
-    exec(
-      `DISPLAY=:0 mpv --force-window=yes --idle=yes --fullscreen --no-osc --input-ipc-server=${SOCKET_PATH}`,
-      (err) => { if (err) console.error("mpv exited:", err.message); },
+  wasPlaying = false;
+  if (mpvProc) { mpvProc.kill(); mpvProc = null; }
+  try { fs.unlinkSync(SOCKET_PATH); } catch (e) {}
+
+  setTimeout(() => {
+    intentionalKill = false;
+    mpvProc = exec(
+      `DISPLAY=:0 mpv --really-quiet --force-window=yes --idle=yes --fullscreen --no-osc --input-ipc-server=${SOCKET_PATH}`,
+      (err) => {
+        mpvProc = null;
+        socketReady = false;
+        if (intentionalKill) return;
+        console.error("mpv exited unexpectedly, restarting...", err?.message ?? "");
+        if (wasPlaying && ws.readyState === WebSocket.OPEN) {
+          wasPlaying = false;
+          ws.send(JSON.stringify({ action: "ended" }));
+        }
+        setTimeout(() => startMpv(), 2000);
+      }
     );
     setTimeout(() => connectMpvSocket(), 300);
-  });
+  }, 500);
 }
 
 ws.on("open", () => {
@@ -110,22 +113,21 @@ ws.on("message", (raw) => {
   try { msg = JSON.parse(raw); } catch (e) { return; }
   console.log("Received:", msg);
 
-  if (msg.action === "play") {
-    sendMpvCommand(["loadfile", `${VIDEO_DIR}/${msg.file}`]);
-  }
+  if (msg.action === "play") sendMpvCommand(["loadfile", `${VIDEO_DIR}/${msg.file}`]);
+  if (msg.action === "stop") { wasPlaying = false; sendMpvCommand(["stop"]); }
+  if (msg.action === "restart") { console.log("Restarting..."); exec("killall mpv", () => process.exit(0)); }
+});
 
-  if (msg.action === "stop") {
-    wasPlaying = false;
-    sendMpvCommand(["stop"]);
-  }
+ws.on("error", (err) => {
+  console.error("Connection error:", err.message);
+  exec("killall mpv");
+  setTimeout(() => process.exit(1), 1000);
 });
 
 ws.on("close", () => {
-  console.log("Disconnected, retrying in 3s...");
+  console.log("Disconnected — retrying...");
   exec("killall mpv");
-  setTimeout(() => process.exit(1), 3000);
+  setTimeout(() => process.exit(1), 1000);
 });
 
-process.on("SIGINT", () => {
-  exec("killall mpv", () => process.exit(0));
-});
+process.on("SIGINT", () => exec("killall mpv", () => process.exit(0)));

@@ -1,30 +1,48 @@
 import { WebSocketServer } from "ws";
 import * as readline from "readline";
 import { exec } from "child_process";
+import fs from "fs";
+import path from "path";
+
+const LOG_DIR = new URL("logs", import.meta.url).pathname;
+const LOG_FILE = path.join(LOG_DIR, "server.log");
+fs.mkdirSync(LOG_DIR, { recursive: true });
+try { if (fs.statSync(LOG_FILE).size > 10 * 1024 * 1024) fs.renameSync(LOG_FILE, LOG_FILE + ".old"); } catch (e) {}
+const logStream = fs.createWriteStream(LOG_FILE, { flags: "a" });
+
+function ts() { return new Date().toLocaleString("sv", { timeZone: "Europe/Berlin" }); }
+const _log = console.log.bind(console);
+const _err = console.error.bind(console);
+console.log = (...args) => { const line = `[${ts()}] ${args.join(" ")}`; _log(line); logStream.write(line + "\n"); };
+console.error = (...args) => { const line = `[${ts()}] ERROR: ${args.join(" ")}`; _err(line); logStream.write(line + "\n"); };
 
 const wss = new WebSocketServer({ port: 8080 });
 const clients = new Map();
 let audioPlayer = null;
 
-const VIDEO_AMOUNT = 27;
 const PARTY_DURATION = 5000;
 
 let nowPlaying = null; // { deviceId, sceneId, startTime }
 
-let driftMode = false;
+let driftMode = true;
 let driftSceneId = null;
-const DRIFT_START = 6; // number or "RANDOM"
+const DRIFT_START = 1; // number or "RANDOM"
 
 let partyInterval = null;
 let driftTrace = false;
 
+const TEST_MODE = process.argv.includes("--test");
+const videoAmountArg = process.argv.find(a => a.startsWith("--video-amount="));
+const VIDEO_AMOUNT = videoAmountArg ? parseInt(videoAmountArg.split("=")[1], 10) : 31;
+const suffix = TEST_MODE ? "-test.mp4" : ".mp4";
+
 const scenes = {};
-for (let i = 1; i < VIDEO_AMOUNT + 1; i++) {
+for (let i = 1; i <= VIDEO_AMOUNT; i++) {
   const id = i.toString().padStart(2, "0");
-  scenes[id] = { video: `${id}.mp4`, audio: `${id}.mp4` };
+  scenes[id] = { video: `${id}${suffix}` };
 }
 
-console.log("Scenes:", scenes);
+console.log(`${TEST_MODE ? "TEST MODE — " : ""}${VIDEO_AMOUNT} scenes loaded`);
 
 wss.on("connection", (ws, req) => {
   const ip = req.socket.remoteAddress;
@@ -32,6 +50,7 @@ wss.on("connection", (ws, req) => {
   clients.set(deviceId, ws);
   console.log(`✓ Device connected: ${deviceId} (${ip})`);
   console.log(`  Connected devices: ${[...clients.keys()].join(", ")}`);
+  if (driftMode && !nowPlaying) driftStep();
 
   ws.on("message", (raw) => {
     let msg;
@@ -227,6 +246,20 @@ rl.on("line", (input) => {
       const sceneId = (Math.floor(Math.random() * VIDEO_AMOUNT) + 1).toString().padStart(2, "0");
       startVideo(deviceId, sceneId);
     }, PARTY_DURATION);
+    return;
+  }
+
+  if (parts[0] === "restart") {
+    console.log(`~> Restarting all clients (${clients.size} connected)`);
+    stopAll();
+    clients.forEach((ws) => ws.send(JSON.stringify({ action: "restart" })));
+    return;
+  }
+
+  if (parts[0] === "quit" || parts[0] === "exit") {
+    console.log("Shutting down server...");
+    stopAll();
+    wss.close(() => process.exit(0));
     return;
   }
 });

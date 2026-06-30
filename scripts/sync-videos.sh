@@ -11,5 +11,5 @@ while IFS= read -r row; do
   pass=$(echo "$row" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['password'])")
   path=$(echo "$row" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['videoPath'])")
   echo "==> Syncing videos to $user@$host:$path"
-  sshpass -p "$pass" rsync -avz --progress -e "ssh -o StrictHostKeyChecking=no" "$VIDEOS_DIR/" "$user@$host:$path/"
-done < <(python3 -c "import json; [print(json.dumps(c)) for c in json.load(open('$CLIENTS'))]")
+  sshpass -p "$pass" rsync -avz --progress --delete -e "ssh -o StrictHostKeyChecking=no" "$VIDEOS_DIR/" "$user@$host:$path/"
+done < <(python3 -c "import json; [print(json.dumps(c)) for c in json.load(open('$CLIENTS')) if c.get('active')]")

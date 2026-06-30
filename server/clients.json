@@ -6,7 +6,8 @@
     "hardware": "Pi 5",
     "user": "pi",
     "password": "pi",
-    "videoPath": "/home/pi/Videos"
+    "videoPath": "/home/pi/Videos",
+    "active": true
   },
   {
     "deviceId": "3",
@@ -16,7 +17,8 @@
     "owner": "Felix",
     "user": "pi",
     "password": "pi",
-    "videoPath": "/home/pi/Videos"
+    "videoPath": "/home/pi/Videos",
+    "active": true
   },
   {
     "deviceId": "4",
@@ -26,7 +28,8 @@
     "owner": "Cheng",
     "user": "pi",
     "password": "pi",
-    "videoPath": "/home/pi/Videos"
+    "videoPath": "/home/pi/Videos",
+    "active": true
   },
   {
     "deviceId": "5",
@@ -36,8 +39,10 @@
     "owner": "Cheng",
     "user": "pi",
     "password": "pi",
-    "videoPath": "/home/pi/Videos"
-  },
+    "videoPath": "/home/pi/Videos",
+    "active": true
+  }
+  ,
   {
     "deviceId": "6",
     "hostname": "screen-pi-6",
@@ -46,6 +51,7 @@
     "owner": "Cheng",
     "user": "pi",
     "password": "pi",
-    "videoPath": "/home/pi/Videos"
+    "videoPath": "/home/pi/Videos",
+    "active": true
   }
 ]
