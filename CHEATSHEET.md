@@ -5,7 +5,7 @@
 ## Morning startup
 
 1. Power on the server (ThinkPad) and all Pis — everything starts automatically
-2. Drift mode begins as soon as the Pis connect to the server (within ~30 seconds)
+2. Drift mode begins as soon as the Pis connect to the server (Server can take a few minutes to boot up)
 
 Nothing else required.
 
