@@ -29,7 +29,7 @@ for (let i = 1; i <= VIDEO_AMOUNT; i++) {
 console.log(`${TEST_MODE ? "TEST MODE — " : ""}${VIDEO_AMOUNT} scenes loaded`);
 
 const PARTY_DURATION = 5000;
-const DRIFT_START = 1; // scene number or "RANDOM"
+const DRIFT_START = "RANDOM"; // scene number or "RANDOM"
 
 const wss = new WebSocketServer({ port: 8080 });
 const clients = new Map();
