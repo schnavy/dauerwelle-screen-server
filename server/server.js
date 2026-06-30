@@ -1,6 +1,5 @@
 import { WebSocketServer } from "ws";
 import * as readline from "readline";
-import { exec } from "child_process";
 import fs from "fs";
 import path from "path";
 
@@ -16,21 +15,6 @@ const _err = console.error.bind(console);
 console.log = (...args) => { const line = `[${ts()}] ${args.join(" ")}`; _log(line); logStream.write(line + "\n"); };
 console.error = (...args) => { const line = `[${ts()}] ERROR: ${args.join(" ")}`; _err(line); logStream.write(line + "\n"); };
 
-const wss = new WebSocketServer({ port: 8080 });
-const clients = new Map();
-let audioPlayer = null;
-
-const PARTY_DURATION = 5000;
-
-let nowPlaying = null; // { deviceId, sceneId, startTime }
-
-let driftMode = true;
-let driftSceneId = null;
-const DRIFT_START = 1; // number or "RANDOM"
-
-let partyInterval = null;
-let driftTrace = false;
-
 const TEST_MODE = process.argv.includes("--test");
 const videoAmountArg = process.argv.find(a => a.startsWith("--video-amount="));
 const VIDEO_AMOUNT = videoAmountArg ? parseInt(videoAmountArg.split("=")[1], 10) : 31;
@@ -43,6 +27,18 @@ for (let i = 1; i <= VIDEO_AMOUNT; i++) {
 }
 
 console.log(`${TEST_MODE ? "TEST MODE — " : ""}${VIDEO_AMOUNT} scenes loaded`);
+
+const PARTY_DURATION = 5000;
+const DRIFT_START = 1; // scene number or "RANDOM"
+
+const wss = new WebSocketServer({ port: 8080 });
+const clients = new Map();
+
+let nowPlaying = null; // { deviceId, sceneId, startTime }
+let driftMode = true;
+let driftSceneId = null;
+let driftTrace = false;
+let partyInterval = null;
 
 wss.on("connection", (ws, req) => {
   const ip = req.socket.remoteAddress;
@@ -66,28 +62,16 @@ wss.on("connection", (ws, req) => {
   ws.on("close", () => {
     const wasActive = nowPlaying && nowPlaying.deviceId === deviceId;
     clients.delete(deviceId);
-    console.log(`Device disconnected: ${deviceId}`);
-    console.log(`  Connected devices: ${[...clients.keys()].join(", ")}`);
+    console.log(`Device disconnected: ${deviceId} — connected: ${[...clients.keys()].join(", ") || "none"}`);
     if (wasActive) {
       nowPlaying = null;
-      if (driftMode) {
-        console.log(`~> Active device disconnected, advancing drift`);
-        driftStep(deviceId);
-      }
+      if (driftMode) driftStep(deviceId);
     }
   });
 });
 
-function stopAudio() {
-  if (audioPlayer) {
-    audioPlayer.kill();
-    audioPlayer = null;
-  }
-}
-
 function getElapsed() {
-  if (!nowPlaying) return 0;
-  return (Date.now() - nowPlaying.startTime) / 1000;
+  return nowPlaying ? (Date.now() - nowPlaying.startTime) / 1000 : 0;
 }
 
 function startVideo(deviceId, sceneId) {
@@ -98,51 +82,36 @@ function startVideo(deviceId, sceneId) {
   if (!client) return console.log(`Device not connected: ${deviceId}`);
 
   if (nowPlaying) stopClient(nowPlaying.deviceId);
-  stopAudio();
 
   nowPlaying = { deviceId, sceneId, startTime: Date.now() };
-
-  // audioPlayer = exec(
-  //   `afplay /Users/david/GIT/dauerwelle-screen-server/videos/${scene.audio}`,
-  // );
-
-  client.send(
-    JSON.stringify({ action: "play", file: scene.video, timestamp: 0 }),
-    (err) => {
-      if (err) {
-        console.error(`~> Send error to device ${deviceId}:`, err.message);
-        clients.delete(deviceId);
-        nowPlaying = null;
-        if (driftMode) driftStep(deviceId);
-      }
-    },
-  );
+  client.send(JSON.stringify({ action: "play", file: scene.video, timestamp: 0 }), (err) => {
+    if (err) {
+      console.error(`Send error to device ${deviceId}:`, err.message);
+      clients.delete(deviceId);
+      nowPlaying = null;
+      if (driftMode) driftStep(deviceId);
+    }
+  });
   console.log(`~> Scene ${sceneId} started on device ${deviceId}`);
 }
 
 function switchToClient(deviceId) {
-  if (!nowPlaying) {
-    return console.log(`Nothing is playing`);
-  } else {
-    console.log(nowPlaying);
-    stopClient(nowPlaying.deviceId);
-  }
+  if (!nowPlaying) return console.log("Nothing is playing");
 
   const client = clients.get(deviceId);
   if (!client) return console.log(`Device not connected: ${deviceId}`);
 
-  const scene = scenes[nowPlaying.sceneId];
+  const { sceneId } = nowPlaying;
   const timestamp = getElapsed();
-  client.send(JSON.stringify({ action: "play", file: scene.video, timestamp }));
+  stopClient(nowPlaying.deviceId);
+  client.send(JSON.stringify({ action: "play", file: scenes[sceneId].video, timestamp }));
   nowPlaying.deviceId = deviceId;
   console.log(`~> Switched to device ${deviceId} at ${timestamp.toFixed(2)}s`);
 }
 
 function stopClient(deviceId) {
   const client = clients.get(deviceId);
-  if (!client) return;
-  client.send(JSON.stringify({ action: "stop" }));
-  console.log(`~> Stopped ${deviceId}`);
+  if (client) client.send(JSON.stringify({ action: "stop" }));
 }
 
 function stopAll() {
@@ -150,10 +119,9 @@ function stopAll() {
   driftSceneId = null;
   driftTrace = false;
   if (partyInterval) { clearInterval(partyInterval); partyInterval = null; }
-  clients.forEach((_, deviceId) => stopClient(deviceId));
-  stopAudio();
+  clients.forEach((_, id) => stopClient(id));
   nowPlaying = null;
-  console.log(`~> Stopped all`);
+  console.log("~> Stopped all");
 }
 
 function driftStep(excludeDeviceId = null) {
@@ -163,21 +131,19 @@ function driftStep(excludeDeviceId = null) {
   const previousSceneId = driftSceneId;
 
   if (driftSceneId === null) {
-    const start = DRIFT_START !== "RANDOM"
-      ? DRIFT_START
-      : Math.floor(Math.random() * VIDEO_AMOUNT) + 1;
+    const start = DRIFT_START === "RANDOM"
+      ? Math.floor(Math.random() * VIDEO_AMOUNT) + 1
+      : DRIFT_START;
     driftSceneId = start.toString().padStart(2, "0");
   } else {
-    const next = (parseInt(driftSceneId, 10) % VIDEO_AMOUNT) + 1;
-    driftSceneId = next.toString().padStart(2, "0");
+    driftSceneId = ((parseInt(driftSceneId, 10) % VIDEO_AMOUNT) + 1).toString().padStart(2, "0");
   }
 
-  const available = [...clients.keys()].filter((id) => id !== excludeDeviceId);
+  const available = [...clients.keys()].filter(id => id !== excludeDeviceId);
   const deviceId = available.length > 0
     ? available[Math.floor(Math.random() * available.length)]
     : excludeDeviceId;
 
-  console.log(`~> Drift: scene ${driftSceneId} on device ${deviceId}`);
   startVideo(deviceId, driftSceneId);
 
   if (driftTrace && excludeDeviceId && previousSceneId) {
@@ -192,33 +158,18 @@ function driftStep(excludeDeviceId = null) {
 
 // CLI
 const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
-console.log("Commands: play <media-id> on <device-id>  |  switch <device-id>  |  stop <device-id>  |  stop  |  drift  |  party  |  scatter");
+console.log("Commands: play <id> on <device>  |  switch <device>  |  stop [device]  |  drift [--trace]  |  party  |  scatter  |  restart  |  quit");
 
 rl.on("line", (input) => {
   const parts = input.trim().split(" ");
+  const cmd = parts[0];
 
-  if (parts[0] === "play" && parts[2] === "on" && parts[3]) {
-    startVideo(parts[3], parts[1]);
-    return;
-  }
+  if (cmd === "play" && parts[2] === "on" && parts[3]) return startVideo(parts[3], parts[1]);
+  if (cmd === "switch" && parts[1]) return switchToClient(parts[1]);
+  if (cmd === "stop" && parts[1]) return stopClient(parts[1]);
+  if (cmd === "stop") return stopAll();
 
-  if (parts[0] === "switch" && parts[1]) {
-    switchToClient(parts[1]);
-    return;
-  }
-
-  if (parts[0] === "stop" && parts[1]) {
-    stopClient(parts[1]);
-    return;
-  }
-
-  if (parts[0] === "stop") {
-    stopAll();
-    return;
-  }
-
-  if (parts[0] === "scatter") {
-    stopAudio();
+  if (cmd === "scatter") {
     nowPlaying = null;
     clients.forEach((ws, deviceId) => {
       const sceneId = (Math.floor(Math.random() * VIDEO_AMOUNT) + 1).toString().padStart(2, "0");
@@ -228,16 +179,16 @@ rl.on("line", (input) => {
     return;
   }
 
-  if (parts[0] === "drift") {
+  if (cmd === "drift") {
     driftMode = true;
     driftTrace = parts.includes("--trace");
     driftSceneId = null;
-    console.log(`~> Drift mode started${driftTrace ? " (trace)" : ""}`);
+    console.log(`~> Drift mode${driftTrace ? " (trace)" : ""}`);
     driftStep();
     return;
   }
 
-  if (parts[0] === "party") {
+  if (cmd === "party") {
     if (partyInterval) clearInterval(partyInterval);
     partyInterval = setInterval(() => {
       const deviceIds = [...clients.keys()];
@@ -249,15 +200,18 @@ rl.on("line", (input) => {
     return;
   }
 
-  if (parts[0] === "restart") {
+  if (cmd === "restart") {
     console.log(`~> Restarting all clients (${clients.size} connected)`);
-    stopAll();
-    clients.forEach((ws) => ws.send(JSON.stringify({ action: "restart" })));
+    clients.forEach((ws, id) => {
+      stopClient(id);
+      ws.send(JSON.stringify({ action: "restart" }));
+    });
+    nowPlaying = null;
     return;
   }
 
-  if (parts[0] === "quit" || parts[0] === "exit") {
-    console.log("Shutting down server...");
+  if (cmd === "quit" || cmd === "exit") {
+    console.log("Shutting down...");
     stopAll();
     wss.close(() => process.exit(0));
     return;
