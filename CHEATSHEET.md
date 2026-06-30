@@ -31,6 +31,28 @@ Everything restarts automatically.
 
 ---
 
+## Updating videos
+
+1. On the ThinkPad, open a terminal in the `dauerwelle-screen-server` folder
+2. Add the new `.mp4` files to the `videos/` folder
+3. Sync to all Pis:
+   ```
+   ./scripts/sync-videos.sh
+   ```
+4. Update `VIDEO_AMOUNT` in `server/server.js` if the number of videos changed
+5. Sync and restart the server:
+   ```
+   ./scripts/sync-server.sh
+   ```
+6. SSH into the server and restart:
+   ```
+   ssh david@10.0.0.1
+   tmux -S /tmp/dauerwelle.sock attach -t dauerwelle
+   ```
+   Then type: `quit` — and restart with: `bash start.sh`
+
+---
+
 ## Debugging via laptop
 
 Tehre is a Lenovo Thinkpad in the Kitchen. Plug the laptop into the switch with an extra Ethernet Cable.

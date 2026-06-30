@@ -15,9 +15,8 @@ const _err = console.error.bind(console);
 console.log = (...args) => { const line = `[${ts()}] ${args.join(" ")}`; _log(line); logStream.write(line + "\n"); };
 console.error = (...args) => { const line = `[${ts()}] ERROR: ${args.join(" ")}`; _err(line); logStream.write(line + "\n"); };
 
+const VIDEO_AMOUNT = 31; // update this when adding/removing videos
 const TEST_MODE = process.argv.includes("--test");
-const videoAmountArg = process.argv.find(a => a.startsWith("--video-amount="));
-const VIDEO_AMOUNT = videoAmountArg ? parseInt(videoAmountArg.split("=")[1], 10) : 31;
 const suffix = TEST_MODE ? "-test.mp4" : ".mp4";
 
 const scenes = {};
