@@ -86,7 +86,7 @@ function startMpv() {
   setTimeout(() => {
     intentionalKill = false;
     mpvProc = exec(
-      `DISPLAY=:0 mpv --really-quiet --force-window=yes --idle=yes --fullscreen --no-osc --input-ipc-server=${SOCKET_PATH}`,
+      `DISPLAY=:0 mpv --really-quiet --cursor-autohide=1 --force-window=yes --idle=yes --fullscreen --no-osc --input-ipc-server=${SOCKET_PATH}`,
       (err) => {
         mpvProc = null;
         socketReady = false;
@@ -113,7 +113,14 @@ ws.on("message", (raw) => {
   try { msg = JSON.parse(raw); } catch (e) { return; }
   console.log("Received:", msg);
 
-  if (msg.action === "play") sendMpvCommand(["loadfile", `${VIDEO_DIR}/${msg.file}`]);
+  if (msg.action === "play") {
+    const filePath = `${VIDEO_DIR}/${msg.file}`;
+    const isImage = /\.(png|jpg|jpeg)$/i.test(msg.file);
+    if (isImage && socketReady && mpvSocket && !mpvSocket.destroyed) {
+      mpvSocket.write(JSON.stringify({ command: ["set_property", "image-display-duration", "inf"] }) + "\n");
+    }
+    sendMpvCommand(["loadfile", filePath]);
+  }
   if (msg.action === "stop") { wasPlaying = false; sendMpvCommand(["stop"]); }
   if (msg.action === "restart") { console.log("Restarting..."); exec("killall mpv", () => process.exit(0)); }
 });
